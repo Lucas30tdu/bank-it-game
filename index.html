@@ -24,7 +24,7 @@
 :root{
   --surface:#F7F0E4;--surface-raised:#FFFFFF;--line:#E3D9C8;--ink:#1A1433;--ink-muted:#5E5677;--on-color:#1A1433;
   --grape:#6C4BE0;--grape-deep:#5636C4;--grape-text:#6C4BE0;--on-grape:#FFFFFF;
-  --coin:#FFC53D;--coin-hi:#FFE38F;--coin-lo:#E5A200;--mint:#3FD9A0;--sky:#8CCFF2;--lime:#C4E53C;--bubble:#F4A3D3;
+  --coin:#FFC53D;--coin-hi:#FFE38F;--coin-lo:#E5A200;--mint:#3FD9A0;--sky:#8CCFF2;--lime:#C4E53C;--bubble:#F4A3D3;--coral:#FF8A5B;--lilac:#B9A4FF;
   --bust:#D93A40;--on-bust:#FFFFFF;--bust-text:#D93A40;--focus:#6C4BE0;--press:rgba(26,20,51,.9);--card-shadow:rgba(26,20,51,.12);
   --shine:rgba(255,255,255,.38);--veil:rgba(26,20,51,.45);
   --font-display:"Fredoka","Nunito",system-ui,sans-serif;--font-body:"Nunito",system-ui,sans-serif;
@@ -568,8 +568,9 @@ const isField=t=>t&&t.closest&&t.closest("input,textarea");
 
 /* ---------- Réglages ---------- */
 const DEFAULT_FIREBASE_URL = "https://bankit-2afb8-default-rtdb.europe-west1.firebasedatabase.app";            // à remplir avec l'adresse Firebase (Realtime Database)
-const APP = {name:"Bank it!", version:"1.4", artefact:"1793704670-07ba", date:"03/11/2026", by:"Lucas Courcy"};
-const COLORS = ["mint","sky","lime","bubble"];
+const APP = {name:"Bank it!", version:"1.5", artefact:"1793704670-07ba", date:"04/11/2026", by:"Lucas Courcy"};
+const COLORS = ["mint","sky","lime","bubble","coral","lilac"];
+const MAX_ONLINE = 6; /* v1.5 : jusqu'à 6 joueurs en ligne (le mode local reste à 4) */
 const store = {
   get(k,d){try{const v=localStorage.getItem("bankit."+k);return v==null?d:JSON.parse(v)}catch(e){return d}},
   set(k,v){try{localStorage.setItem("bankit."+k,JSON.stringify(v))}catch(e){}}
@@ -619,7 +620,7 @@ function dealFrom(deck, qi, hard){
 /* ---------- Moteur de jeu (partagé local / en ligne) ---------- */
 const START = 100;
 function newGame(players,mode,nq){
-  return {id:rnd().toString(36).slice(2,8),risky:mode==="serie"?3+Math.floor(rnd()*(nq-4)):0,players:players.map((p,i)=>({id:p.id||("p"+i),name:p.name,color:COLORS[i%4],pts:START,zeroAt:0})),
+  return {id:rnd().toString(36).slice(2,8),risky:mode==="serie"?3+Math.floor(rnd()*(nq-4)):0,players:players.map((p,i)=>({id:p.id||("p"+i),name:p.name,color:COLORS[i%COLORS.length],pts:START,zeroAt:0})),
     mode,nq,qn:0,deck:shuffle(QUESTIONS.map((_,i)=>i)),qi:0,q:null,phase:"choose",results:null,next:null};
 }
 function nextQuestion(g){g.qn++;g.q=dealFrom(g.deck,g.qi,isRisky(g));g.qi=(g.qi+1)%g.deck.length;g.phase="choose";g.results=null;g.next=null}
@@ -917,7 +918,7 @@ function home(dir){
     <div class="pip-stage"><div class="pip-bob">${pip(true)}</div></div></div>
     <nav class="menu" aria-label="Menu">
      <button class="btn btn-primary btn-shine st" data-go="localSetup"><span class="lbl"><span class="big">Jouer ici</span><small>2 à 4 joueurs, un téléphone</small></span><span class="ico">${ICON.phone}</span></button>
-     <button class="btn btn-plus st" data-go="onlineHome"><span class="lbl"><span class="big">Jouer en ligne</span><small>chacun son téléphone</small></span><span class="ico">${ICON.globe}</span></button>
+     <button class="btn btn-plus st" data-go="onlineHome"><span class="lbl"><span class="big">Jouer en ligne</span><small>2 à 6 joueurs, chacun son téléphone</small></span><span class="ico">${ICON.globe}</span></button>
      <div class="grid2 st"><button class="btn btn-ghost" data-go="rules"><span class="ico">${ICON.book}</span>Règles</button><button class="btn btn-ghost" data-go="settingsView"><span class="ico">${ICON.gear}</span>Réglages</button></div>
     </nav>`,{dir});
 }
@@ -1075,7 +1076,7 @@ function onlineHome(dir){
         const ps=room.game.players||[];
         if(ps.some(p=>p.id===online.pid)){why=null;return room}
         if(room.status!=="lobby"){why="Cette partie a déjà commencé.";return}
-        if(ps.length>=4){why="La partie est complète (4 joueurs).";return}
+        if(ps.length>=MAX_ONLINE){why="La partie est complète ("+MAX_ONLINE+" joueurs).";return}
         ps.push({id:online.pid,name:n,color:COLORS[ps.length],pts:START,zeroAt:0});room.game.players=ps;return room});
       if(!r.committed||!r.snapshot.exists()){err(why||"Aucune partie avec ce code.");return}
       enterRoom(code);
@@ -1100,7 +1101,7 @@ function renderOnline(room){
   if(room.status==="lobby"){
     render(`${topBar("Salle d'attente")}
      <div class="panel st" style="align-items:center;text-align:center"><span class="lab">Code de la partie</span><div class="code-big">${esc(online.code)}</div><p class="note">Les autres joueurs tapent ce code dans « Rejoindre ».</p></div>
-     <div class="panel st"><span class="lab">Joueurs (${g.players.length}/4)</span><div class="players">${g.players.map(p=>playerChip(p,{me:p.id===online.pid})).join("")}</div>
+     <div class="panel st"><span class="lab">Joueurs (${g.players.length}/${MAX_ONLINE})</span><div class="players">${g.players.map(p=>playerChip(p,{me:p.id===online.pid})).join("")}</div>
       <p class="note">${g.mode==="subite"?"Mort subite":"Série de "+g.nq+" questions"} · ${START} points chacun</p></div>
      <div class="spacer"></div>
      ${host?`<button class="btn btn-primary btn-shine st" id="go" ${g.players.length<2?"disabled":""}><span class="lbl"><span class="big">Lancer la partie</span><small>${g.players.length<2?"il faut 2 joueurs":g.players.length+" joueurs"}</small></span><span class="ico">${ICON.arrow}</span></button>`:`<p class="note st" style="text-align:center">L'hôte lance la partie quand tout le monde est là.</p>`}`,{key:"lobby",dir:"up"});
